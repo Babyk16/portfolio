@@ -1,20 +1,16 @@
-const { Pool } = require("pg");
+import postgres from "postgres";
 
-const pool = new Pool({
-  connectionString: process.env.DATABASE_URL,
-  ssl: {
-    rejectUnauthorized: false, // required for Supabase
-  },
-  max: 5, // safe for free tier
-});
+const connectionString = process.env.DATABASE_URL;
 
-pool.on("connect", () => {
-  console.log("🟢 Connected to PostgreSQL");
-});
+const sql = postgres(connectionString);
 
-pool.on("error", (err) => {
-  console.error("🔴 PostgreSQL error:", err);
-  process.exit(1);
-});
+(async () => {
+  try {
+    const result = await sql`SELECT NOW()`;
+    console.log("🟢 Database connected successfully at:", result[0].now);
+  } catch (err) {
+    console.error("🔴 Database connection failed:", err.message);
+  }
+})();
 
-module.exports = pool;
+export default sql;

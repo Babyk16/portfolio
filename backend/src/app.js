@@ -1,9 +1,8 @@
-const express = require("express");
-const cors = require("cors");
+import express from "express";
+import cors from "cors";
+import sql from "./config/db.js";
 
 const app = express();
-
-const pool = require("./config/db.js");
 
 /* ---------- Middlewares ---------- */
 app.use(cors());
@@ -14,26 +13,23 @@ app.get("/api/health", (req, res) => {
   res.status(200).json({ status: "OK" });
 });
 
+/* ---------- Root Route ---------- */
 app.get("/", (req, res) => {
   res.send("<h1>Hello World from Express!</h1>");
 });
 
-/* ---------- Routes (placeholders for now) ---------- */
-// app.use("/api/artworks", artworkRoutes);
-// app.use("/api/courses", courseRoutes);
-// app.use("/api/contact", contactRoutes);
-// app.use("/api/admin", adminRoutes);
-
+/* ---------- Database Test ---------- */
 app.get("/api/db-test", async (req, res) => {
   try {
-    const result = await pool.query("SELECT NOW()");
+    const result = await sql`SELECT NOW()`;
     res.json({
       success: true,
-      time: result.rows[0].now,
+      time: result[0].now,
     });
   } catch (err) {
+    console.error(err);
     res.status(500).json({ error: err.message });
   }
 });
 
-module.exports = app;
+export default app;
