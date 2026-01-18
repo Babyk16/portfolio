@@ -1,222 +1,172 @@
 import { useState } from "react";
-import { Layout } from "@/components/Layout";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
-import { Upload, X, Image as ImageIcon, Loader2 } from "lucide-react";
-import { toast } from "sonner";
+import { useDropzone } from "react-dropzone";
 
-const CLOUD_NAME = import.meta.env.VITE_CLOUDINARY_CLOUD_NAME;
-const UPLOAD_PRESET = import.meta.env.VITE_CLOUDINARY_UPLOAD_PRESET;
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
-
-const CATEGORIES = ["portrait", "landscape", "abstract"];
-
-interface PhotoUpload {
-  id: string;
-  file: File;
-  preview: string;
-  title: string;
-  description: string;
-  category: string;
-}
+const categories = [
+  { id: 1, name: "Portrait" },
+  { id: 2, name: "Landscape" },
+  { id: 3, name: "Abstract" },
+];
 
 export default function Admin() {
-  const [photos, setPhotos] = useState<PhotoUpload[]>([]);
-  const [isUploading, setIsUploading] = useState(false);
+  const [title, setTitle] = useState("");
+  const [description, setDescription] = useState("");
+  const [categoryId, setCategoryId] = useState("");
+  const [file, setFile] = useState<File | null>(null);
+  const [preview, setPreview] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
 
-  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = e.target.files;
-    if (!files) return;
+  const { getRootProps, getInputProps, isDragActive } = useDropzone({
+    accept: { "image/*": [] },
+    maxFiles: 1,
+    onDrop: (acceptedFiles) => {
+      const selectedFile = acceptedFiles[0];
+      setFile(selectedFile);
+      setPreview(URL.createObjectURL(selectedFile));
+    },
+  });
 
-    const newPhotos: PhotoUpload[] = Array.from(files).map((file) => ({
-      id: crypto.randomUUID(),
-      file,
-      preview: URL.createObjectURL(file),
-      title: "",
-      description: "",
-      category: "portrait",
-    }));
-
-    setPhotos((prev) => [...prev, ...newPhotos]);
+  const resetForm = () => {
+    setTitle("");
+    setDescription("");
+    setCategoryId("");
+    setFile(null);
+    setPreview(null);
   };
 
-  const removePhoto = (id: string) => {
-    setPhotos((prev) => {
-      const photo = prev.find((p) => p.id === id);
-      if (photo) URL.revokeObjectURL(photo.preview);
-      return prev.filter((p) => p.id !== id);
-    });
-  };
-
-  const updatePhoto = (
-    id: string,
-    field: keyof Omit<PhotoUpload, "id" | "file" | "preview">,
-    value: string
-  ) => {
-    setPhotos((prev) =>
-      prev.map((p) => (p.id === id ? { ...p, [field]: value } : p))
-    );
-  };
-
-  const uploadToCloudinary = async (file: File) => {
+  const uploadImage = async (file: File) => {
     const formData = new FormData();
-    formData.append("file", file);
-    formData.append("upload_preset", UPLOAD_PRESET);
+    formData.append("image", file);
 
-    const res = await fetch(
-      `https://api.cloudinary.com/v1_1/${CLOUD_NAME}/image/upload`,
-      {
-        method: "POST",
-        body: formData,
-      }
-    );
+    const res = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/upload`, {
+      method: "POST",
+      body: formData,
+    });
 
-    if (!res.ok) throw new Error("Cloudinary upload failed");
     return res.json();
   };
 
-  const handleUpload = async () => {
-    if (photos.length === 0) {
-      toast.error("Select at least one image");
-      return;
-    }
+  const removeImage = () => {
+    setFile(null);
+    setPreview(null);
+  };
 
-    for (const p of photos) {
-      if (!p.title.trim()) {
-        toast.error("All photos must have a title");
-        return;
-      }
-    }
+  const handleSubmit = async () => {
+    if (!file || !title || !categoryId) return;
 
-    setIsUploading(true);
+    setLoading(true);
 
     try {
-      for (const photo of photos) {
-        // 1. Upload to Cloudinary
-        const cloudinaryResult = await uploadToCloudinary(photo.file);
+      // 1. Upload to backend → Cloudinary
+      const uploadResult = await uploadImage(file);
+      const imageUrl = uploadResult.url;
 
-        // 2. Save to backend
-        await fetch(`${API_BASE_URL}/api/admin/artworks`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            title: photo.title,
-            description: photo.description,
-            category: photo.category,
-            image_url: cloudinaryResult.secure_url,
-            is_for_sale: false,
-          }),
-        });
-      }
+      // 2. Save to database
+      await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/admin/artworks`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          title,
+          description,
+          category_id: Number(categoryId),
+          image_url: imageUrl,
+        }),
+      });
 
-      toast.success("All photos uploaded successfully!");
-      setPhotos([]);
+      resetForm();
+      alert("Artwork uploaded successfully!");
     } catch (err) {
       console.error(err);
-      toast.error("Upload failed");
+      alert("Upload failed");
     } finally {
-      setIsUploading(false);
+      setLoading(false);
     }
   };
 
   return (
-    <Layout>
-      <main className="min-h-screen bg-background pt-24 pb-16">
-        <div className="container mx-auto px-6 lg:px-12">
-          <h1 className="text-4xl font-bold mb-8">Admin Dashboard</h1>
+    <div className="min-h-screen bg-zinc-950 flex items-center justify-center px-4">
+      <div className="w-full max-w-3xl bg-zinc-900 rounded-2xl p-10 border border-zinc-800">
+        {/* Header */}
+        <div className="mb-8">
+          <h1 className="text-3xl font-light text-zinc-100">Artwork Upload</h1>
+          <p className="text-zinc-400 mt-1">Review before publishing</p>
+        </div>
 
-          <label className="border-dashed border-2 rounded-xl p-10 flex flex-col items-center cursor-pointer">
-            <Upload className="mb-4" />
-            <p>Click to upload images</p>
-            <Input
-              type="file"
-              multiple
-              className="hidden"
-              accept="image/png,image/jpeg,image/webp"
-              onChange={handleFileSelect}
-            />
-          </label>
+        <div className="space-y-6">
+          {/* Title */}
+          <input
+            placeholder="Artwork title"
+            className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-4 py-2 text-zinc-100"
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+          />
 
-          {photos.length > 0 && (
-            <>
-              <Button
-                onClick={handleUpload}
-                disabled={isUploading}
-                className="my-6"
-              >
-                {isUploading ? (
-                  <>
-                    <Loader2 className="animate-spin mr-2" />
-                    Uploading...
-                  </>
-                ) : (
-                  "Upload to Cloudinary"
-                )}
-              </Button>
+          {/* Description */}
+          <textarea
+            placeholder="Artwork description"
+            rows={4}
+            className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-4 py-2 text-zinc-100"
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+          />
 
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                {photos.map((photo) => (
-                  <div key={photo.id} className="border rounded-xl p-4">
-                    <img
-                      src={photo.preview}
-                      className="w-full h-48 object-cover rounded"
-                    />
+          {/* Category */}
+          <select
+            className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-4 py-2 text-zinc-100"
+            value={categoryId}
+            onChange={(e) => setCategoryId(e.target.value)}>
+            <option value="">Select category</option>
+            {categories.map((cat) => (
+              <option key={cat.id} value={cat.id}>
+                {cat.name}
+              </option>
+            ))}
+          </select>
 
-                    <Button
-                      variant="destructive"
-                      size="sm"
-                      className="mt-2"
-                      onClick={() => removePhoto(photo.id)}
-                    >
-                      <X size={16} />
-                    </Button>
-
-                    <Label>Title</Label>
-                    <Input
-                      value={photo.title}
-                      onChange={(e) =>
-                        updatePhoto(photo.id, "title", e.target.value)
-                      }
-                    />
-
-                    <Label>Description</Label>
-                    <Textarea
-                      value={photo.description}
-                      onChange={(e) =>
-                        updatePhoto(photo.id, "description", e.target.value)
-                      }
-                    />
-
-                    <Label>Category</Label>
-                    <select
-                      value={photo.category}
-                      onChange={(e) =>
-                        updatePhoto(photo.id, "category", e.target.value)
-                      }
-                      className="w-full border p-2 rounded"
-                    >
-                      {CATEGORIES.map((c) => (
-                        <option key={c} value={c}>
-                          {c.toUpperCase()}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                ))}
+          {/* Image Review Section */}
+          {!preview ? (
+            <div
+              {...getRootProps()}
+              className={`rounded-xl border-2 border-dashed px-6 py-10 text-center cursor-pointer transition
+                ${
+                  isDragActive
+                    ? "border-zinc-400 bg-zinc-800"
+                    : "border-zinc-700 hover:border-zinc-500"
+                }`}>
+              <input {...getInputProps()} />
+              <p className="text-zinc-400">
+                Drag & drop artwork here, or click to browse
+              </p>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              <div className="rounded-xl overflow-hidden border border-zinc-700">
+                <img
+                  src={preview}
+                  alt="Preview"
+                  className="w-full object-cover max-h-[400px]"
+                />
               </div>
-            </>
-          )}
 
-          {photos.length === 0 && (
-            <div className="text-center mt-12">
-              <ImageIcon size={64} className="mx-auto opacity-40" />
-              <p>No photos selected</p>
+              <div className="flex justify-between items-center text-sm">
+                <span className="text-zinc-400">{file?.name}</span>
+                <button
+                  onClick={removeImage}
+                  className="text-zinc-300 hover:text-white underline">
+                  Change image
+                </button>
+              </div>
             </div>
           )}
+
+          {/* Publish */}
+          <button
+            onClick={handleSubmit}
+            disabled={loading}
+            className="w-full rounded-full bg-zinc-100 text-zinc-900 py-3 hover:bg-white transition">
+            {loading ? "Uploading..." : "Publish Artwork"}
+          </button>
         </div>
-      </main>
-    </Layout>
+      </div>
+    </div>
   );
 }

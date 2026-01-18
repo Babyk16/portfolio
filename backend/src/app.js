@@ -1,5 +1,9 @@
 import express from "express";
 import cors from "cors";
+
+import uploadRoutes from "./routes/upload.js";
+import adminRoutes from "./routes/admin.js";
+import artworksRoutes from "./routes/artworks.js";
 import sql from "./config/db.js";
 
 const app = express();
@@ -17,6 +21,11 @@ app.get("/api/health", (req, res) => {
 app.get("/", (req, res) => {
   res.send("<h1>Hello World from Express!</h1>");
 });
+
+/* ---------- API Routes ---------- */
+app.use("/api/upload", uploadRoutes); // Cloudinary upload
+app.use("/api/admin", adminRoutes); // Save artwork to DB
+app.use("/api/artworks", artworksRoutes); // Fetch artworks for gallery
 
 /* ---------- Database Test ---------- */
 app.get("/api/db-test", async (req, res) => {

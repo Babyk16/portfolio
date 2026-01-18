@@ -1,42 +1,46 @@
 import { Link } from "react-router-dom";
-import { Artwork } from "@/types/artwork";
 import { cn } from "@/lib/utils";
+
+export interface Artwork {
+  id: number;
+  title: string;
+  description?: string;
+  image_url: string;
+  category?: string;
+}
 
 interface ArtworkCardProps {
   artwork: Artwork;
-  className?: string;
   priority?: boolean;
 }
 
-export function ArtworkCard({ artwork, className, priority }: ArtworkCardProps) {
+export function ArtworkCard({ artwork, priority = false }: ArtworkCardProps) {
   return (
     <Link
       to={`/artwork/${artwork.id}`}
-      className={cn(
-        "group block relative overflow-hidden hover-lift",
-        className
-      )}
-    >
-      <div className="image-reveal aspect-square bg-card">
-        <img
-          src={artwork.image}
-          alt={artwork.title}
-          className="w-full h-full object-cover"
-          loading={priority ? "eager" : "lazy"}
-        />
-        
-        {/* Overlay on hover */}
-        <div className="absolute inset-0 bg-gradient-to-t from-background/90 via-background/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
-        
-        {/* Content on hover */}
-        <div className="absolute inset-0 flex flex-col justify-end p-6 opacity-0 group-hover:opacity-100 transition-all duration-500 translate-y-4 group-hover:translate-y-0">
-          <h3 className="font-display text-xl font-semibold text-foreground mb-1">
-            {artwork.title}
-          </h3>
-          <p className="text-sm text-muted-foreground">
-            {artwork.medium} · {artwork.year}
+      className="group relative block overflow-hidden rounded-xl bg-zinc-900">
+      {/* Image */}
+      <img
+        src={artwork.image_url}
+        alt={artwork.title}
+        loading={priority ? "eager" : "lazy"}
+        className={cn(
+          "h-full w-full object-cover transition-transform duration-500",
+          "group-hover:scale-105"
+        )}
+      />
+
+      {/* Overlay */}
+      <div className="absolute inset-0 bg-black/40 opacity-0 transition-opacity duration-300 group-hover:opacity-100" />
+
+      {/* Text */}
+      <div className="absolute bottom-0 left-0 right-0 p-4 translate-y-4 opacity-0 transition-all duration-300 group-hover:translate-y-0 group-hover:opacity-100">
+        <h3 className="text-white text-lg font-medium">{artwork.title}</h3>
+        {artwork.description && (
+          <p className="text-zinc-300 text-sm line-clamp-2">
+            {artwork.description}
           </p>
-        </div>
+        )}
       </div>
     </Link>
   );
